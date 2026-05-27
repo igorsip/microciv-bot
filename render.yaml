@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: microciv-bot
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: BOT_TOKEN
+        scope: run
+      - key: PORT
+        value: 3000
+      - key: SERVER_URL
+        scope: run
+      - key: DEV_MODE
+        value: false

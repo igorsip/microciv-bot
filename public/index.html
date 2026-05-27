@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MicroCiv - Твоя империя</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+    <div id="app">
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Загрузка империи...</p>
+        </div>
+
+        <div id="game" class="game hidden">
+            <!-- Шапка с ресурсами -->
+            <header class="resources-panel">
+                <div class="resource">
+                    <span class="icon">🌾</span>
+                    <div class="resource-info">
+                        <div class="resource-value" id="food">0</div>
+                        <div class="resource-rate" id="food-rate">+0.0/с</div>
+                    </div>
+                </div>
+                <div class="resource">
+                    <span class="icon">🏭</span>
+                    <div class="resource-info">
+                        <div class="resource-value" id="production">0</div>
+                        <div class="resource-rate" id="production-rate">+0.0/с</div>
+                    </div>
+                </div>
+                <div class="resource">
+                    <span class="icon">🔬</span>
+                    <div class="resource-info">
+                        <div class="resource-value" id="science">0</div>
+                        <div class="resource-rate" id="science-rate">+0.0/с</div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Информация о городе -->
+            <section class="city-info">
+                <h2>🏛 Твоя империя</h2>
+                <div class="stats">
+                    <div class="stat">👥 Население: <span id="population">1</span></div>
+                    <div class="stat">🏗 Зданий: <span id="buildings-count">0</span></div>
+                </div>
+            </section>
+
+            <!-- Здания -->
+            <section class="buildings">
+                <h3>🏗 Построить здание</h3>
+                <div class="buildings-grid">
+                    <div class="building-card" data-building="farm">
+                        <div class="building-icon">🌾</div>
+                        <div class="building-name">Ферма</div>
+                        <div class="building-effect">+0.3 🌾/с</div>
+                        <div class="building-cost">
+                            <span>🏭 20</span>
+                        </div>
+                        <div class="building-owned">Построено: <span id="farm-count">0</span></div>
+                        <button class="build-btn" onclick="buildBuilding('farm')">Построить</button>
+                    </div>
+
+                    <div class="building-card" data-building="barracks">
+                        <div class="building-icon">⚔️</div>
+                        <div class="building-name">Казарма</div>
+                        <div class="building-effect">+0.2 🏭/с</div>
+                        <div class="building-cost">
+                            <span>🌾 10</span>
+                            <span>🏭 30</span>
+                        </div>
+                        <div class="building-owned">Построено: <span id="barracks-count">0</span></div>
+                        <button class="build-btn" onclick="buildBuilding('barracks')">Построить</button>
+                    </div>
+
+                    <div class="building-card" data-building="library">
+                        <div class="building-icon">📚</div>
+                        <div class="building-name">Библиотека</div>
+                        <div class="building-effect">+0.2 🔬/с</div>
+                        <div class="building-cost">
+                            <span>🌾 5</span>
+                            <span>🏭 25</span>
+                            <span>🔬 5</span>
+                        </div>
+                        <div class="building-owned">Построено: <span id="library-count">0</span></div>
+                        <button class="build-btn" onclick="buildBuilding('library')">Построить</button>
+                    </div>
+
+                    <div class="building-card" data-building="market">
+                        <div class="building-icon">🏪</div>
+                        <div class="building-name">Рынок</div>
+                        <div class="building-effect">+0.2 🌾/с, +0.3 🏭/с</div>
+                        <div class="building-cost">
+                            <span>🌾 15</span>
+                            <span>🏭 40</span>
+                            <span>🔬 10</span>
+                        </div>
+                        <div class="building-owned">Построено: <span id="market-count">0</span></div>
+                        <button class="build-btn" onclick="buildBuilding('market')">Построить</button>
+                    </div>
+
+                    <div class="building-card" data-building="workshop">
+                        <div class="building-icon">🔧</div>
+                        <div class="building-name">Мастерская</div>
+                        <div class="building-effect">+0.5 🏭/с, +0.1 🔬/с</div>
+                        <div class="building-cost">
+                            <span>🌾 10</span>
+                            <span>🏭 50</span>
+                            <span>🔬 15</span>
+                        </div>
+                        <div class="building-owned">Построено: <span id="workshop-count">0</span></div>
+                        <button class="build-btn" onclick="buildBuilding('workshop')">Построить</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Футер с кнопками -->
+            <footer class="game-footer">
+                <button class="action-btn" onclick="refreshGame()">🔄 Обновить</button>
+                <button class="action-btn" onclick="showHelp()">❓ Помощь</button>
+            </footer>
+        </div>
+
+        <!-- Модалка помощи -->
+        <div id="help-modal" class="modal hidden">
+            <div class="modal-content">
+                <h2>📖 Справка</h2>
+                <p><strong>🎯 Цель:</strong> Развивай цивилизацию, строй здания!</p>
+                <p><strong>🌾 Еда</strong> - кормит население</p>
+                <p><strong>🏭 Производство</strong> - нужно для строительства</p>
+                <p><strong>🔬 Наука</strong> - открывает технологии</p>
+                <br>
+                <p>Ресурсы генерируются автоматически каждую секунду!</p>
+                <button class="action-btn" onclick="closeHelp()">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
