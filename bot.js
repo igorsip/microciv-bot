@@ -4,26 +4,28 @@ const db = require('./database');
 function createBot(token, serverUrl) {
   const bot = new TelegramBot(token, { polling: true });
   
-  // Команда /start
   bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
     const user = msg.from;
     
-    // Создаем игрока в базе
     db.getOrCreatePlayer(user.id, {
       username: user.username,
       first_name: user.first_name
     });
     
     const welcomeMessage = `
-🏛 Добро пожаловать в MicroCiv! 🏛
+🏛 Добро пожаловать в MicroCiv 2.0! 🏛
 
-Ты — правитель новой цивилизации. Твоя задача — развивать город, исследовать технологии и стать величайшей державой!
+Ты — правитель новой цивилизации. Твоя задача — развивать её от Каменного века к Информационной эре!
 
 🎮 Управляй:
 • 🌾 Едой - кормит население
 • 🏭 Производством - строит здания
 • 🔬 Наукой - открывает технологии
+• 💰 Золотом - торговля и найм
+• 🎨 Культурой - расширение территории
+• ⛪ Верой - благословения
+• 😊 Счастьем - благосостояние
 
 📊 Твоя империя уже ждет тебя!
     `;
@@ -33,13 +35,13 @@ function createBot(token, serverUrl) {
         inline_keyboard: [
           [{ text: '🎮 Играть', web_app: { url: `${serverUrl}/?userId=${user.id}` } }],
           [{ text: '📊 Статистика', callback_data: 'stats' }],
+          [{ text: '🔬 Технологии', callback_data: 'techs' }],
           [{ text: '❓ Помощь', callback_data: 'help' }]
         ]
       }
     });
   });
   
-  // Команда /play
   bot.onText(/\/play/, (msg) => {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
@@ -53,7 +55,6 @@ function createBot(token, serverUrl) {
     });
   });
   
-  // Команда /stats
   bot.onText(/\/stats/, (msg) => {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
@@ -68,56 +69,56 @@ function createBot(token, serverUrl) {
     const statsMessage = `
 📊 Статистика твоей цивилизации:
 
-💰 Ресурсы:
-🌾 Еда: ${g.food} (+${g.food_per_sec.toFixed(1)}/сек)
-🏭 Производство: ${g.production} (+${g.production_per_sec.toFixed(1)}/сек)
-🔬 Наука: ${g.science} (+${g.science_per_sec.toFixed(1)}/сек)
+🏛 Эпоха: ${g.era_name}
 
-🏗 Здания:
-🌾 Ферм: ${g.farm_count}
-⚔️ Казарм: ${g.barracks_count}
-📚 Библиотек: ${g.library_count}
-🏪 Рынков: ${g.market_count}
-🔧 Мастерских: ${g.workshop_count}
+💰 Ресурсы:
+🌾 Еда: ${g.food} (+${g.food_per_sec.toFixed(2)}/сек)
+🏭 Производство: ${g.production} (+${g.production_per_sec.toFixed(2)}/сек)
+🔬 Наука: ${g.science} (+${g.science_per_sec.toFixed(2)}/сек)
+💰 Золото: ${g.gold} (+${g.gold_per_sec.toFixed(2)}/сек)
+🎨 Культура: ${g.culture} (+${g.culture_per_sec.toFixed(2)}/сек)
+⛪ Вера: ${g.faith} (+${g.faith_per_sec.toFixed(2)}/сек)
+😊 Счастье: ${g.happiness}%
+
+🏗 Здания: ${Object.values(g.buildings).reduce((a, b) => a + b, 0)} построено
 
 👥 Население: ${g.population}
 🔄 Ход: ${g.turn}
+
+🔬 Исследованных технологий: ${g.technologies.length}
     `;
     
     bot.sendMessage(chatId, statsMessage);
   });
   
-  // Команда /help
   bot.onText(/\/help/, (msg) => {
     const chatId = msg.chat.id;
     
     const helpMessage = `
-📖 Справка по MicroCiv
+📖 Справка по MicroCiv 2.0
 
 🎯 Цель игры:
-Развивай свою цивилизацию, строй здания, исследуй технологии!
+Развивай свою цивилизацию от Каменного века к Информационной эре!
+
+🌍 Эпохи:
+⛏️ Каменный век → 📜 Древность → 🏰 Средневековье → 🎨 Ренессанс → 🏭 Промышленность → 💻 Информационная эра
+
+🔬 Технологии:
+Исследуй 50+ технологий для разблокировки новых возможностей
 
 🏗 Здания:
-🌾 Ферма - производит еду
-⚔️ Казарма - обучает войска
-📚 Библиотека - генерирует науку
-🏪 Рынок - улучшает экономику
-🔧 Мастерская - ускоряет производство
+Строй различные здания для повышения производства ресурсов
 
-💡 Команды:
-/start - Начать игру
-/play - Открыть игру
-/stats - Показать статистику
-/help - Эта справка
+💡 Совет:
+Сначала исследуй Земледелие, потом Письменность для развития науки!
 
 ⭐️ Монетизация:
-В будущем можно будет покупать ускорения и бонусы за Telegram Stars!
+Скоро будут премиум-бонусы за Telegram Stars!
     `;
     
     bot.sendMessage(chatId, helpMessage);
   });
   
-  // Обработка callback кнопок
   bot.on('callback_query', (query) => {
     const chatId = query.message.chat.id;
     const userId = query.from.id;
@@ -133,25 +134,31 @@ function createBot(token, serverUrl) {
       }
       
       const g = stats.gameData;
-      const statsMessage = `
-📊 Твоя империя:
+      const msg = `
+📊 Твоя империя (${g.era_name}):
 
 💰 Ресурсы:
-🌾 ${g.food} (+${g.food_per_sec.toFixed(1)}/с)
-🏭 ${g.production} (+${g.production_per_sec.toFixed(1)}/с)
-🔬 ${g.science} (+${g.science_per_sec.toFixed(1)}/с)
+🌾 ${g.food} (+${g.food_per_sec.toFixed(2)}/с)
+🏭 ${g.production} (+${g.production_per_sec.toFixed(2)}/с)
+🔬 ${g.science} (+${g.science_per_sec.toFixed(2)}/с)
+💰 ${g.gold} (+${g.gold_per_sec.toFixed(2)}/с)
+🎨 ${g.culture} (+${g.culture_per_sec.toFixed(2)}/с)
 
-🏗 Зданий построено: ${g.farm_count + g.barracks_count + g.library_count + g.market_count + g.workshop_count}
+🔬 Технологии: ${g.technologies.length} изучено
+👥 Население: ${g.population}
       `;
       
-      bot.sendMessage(chatId, statsMessage);
+      bot.sendMessage(chatId, msg);
+    } else if (data === 'techs') {
+      bot.answerCallbackQuery(query.id);
+      bot.sendMessage(chatId, '🔬 Открой игру через Web App чтобы исследовать технологии!');
     } else if (data === 'help') {
       bot.answerCallbackQuery(query.id);
       bot.sendMessage(chatId, '📖 Используй /help для получения полной справки');
     }
   });
   
-  console.log('✅ Telegram бот запущен');
+  console.log('✅ Telegram бот запущен (версия 2.0)');
   return bot;
 }
 

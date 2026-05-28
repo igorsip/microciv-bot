@@ -1,54 +1,51 @@
-// Telegram Web App API
 let tg = window.Telegram.WebApp;
 tg.expand();
 
-// Определяем URL сервера
 const SERVER_URL = window.location.origin;
+let userId = new URLSearchParams(window.location.search).get('userId');
+if (!userId && tg.initDataUnsafe?.user?.id) userId = tg.initDataUnsafe.user.id;
 
-// Получаем ID пользователя
-let userId = null;
-const urlParams = new URLSearchParams(window.location.search);
-userId = urlParams.get('userId');
-
-if (!userId && tg.initDataUnsafe?.user?.id) {
-    userId = tg.initDataUnsafe.user.id;
-}
-
-// Локальное хранилище данных игры
 let gameData = null;
+let allTechs = null;
 let resourcesInterval = null;
 
-// Инициализация игры
 async function initGame() {
     if (!userId) {
-        showError('Не удалось получить ID пользователя. Открой игру из Telegram бота.');
+        showError('Не удалось получить ID');
         return;
     }
 
     try {
-        const response = await fetch(`${SERVER_URL}/api/player/${userId}`);
-        const data = await response.json();
+        const [playerRes, techsRes] = await Promise.all([
+            fetch(`${SERVER_URL}/api/player/${userId}`),
+            fetch(`${SERVER_URL}/api/techs/all`)
+        ]);
 
-        if (data.error) {
-            showError('Игрок не найден. Начни игру командой /start в боте.');
+        const playerData = await playerRes.json();
+        const techsData = await techsRes.json();
+
+        if (playerData.error) {
+            showError('Начни игру командой /start в боте');
             return;
         }
 
-        gameData = data.game;
+        gameData = playerData.game;
+        allTechs = techsData.techs;
+
         updateUI();
+        renderBuildings();
+        renderTechs();
         startResourceGeneration();
 
-        // Скрываем загрузку, показываем игру
         document.getElementById('loading').classList.add('hidden');
         document.getElementById('game').classList.remove('hidden');
 
     } catch (error) {
         console.error('Error loading game:', error);
-        showError('Ошибка загрузки игры. Проверь соединение.');
+        showError('Ошибка загрузки игры');
     }
 }
 
-// Обновление UI
 function updateUI() {
     if (!gameData) return;
 
@@ -56,95 +53,108 @@ function updateUI() {
     document.getElementById('food').textContent = Math.floor(gameData.food);
     document.getElementById('production').textContent = Math.floor(gameData.production);
     document.getElementById('science').textContent = Math.floor(gameData.science);
+    document.getElementById('gold').textContent = Math.floor(gameData.gold);
+    document.getElementById('culture').textContent = Math.floor(gameData.culture);
+    document.getElementById('faith').textContent = Math.floor(gameData.faith);
+    document.getElementById('happiness').textContent = Math.floor(gameData.happiness);
 
-    document.getElementById('food-rate').textContent = `+${gameData.food_per_sec.toFixed(1)}/с`;
-    document.getElementById('production-rate').textContent = `+${gameData.production_per_sec.toFixed(1)}/с`;
-    document.getElementById('science-rate').textContent = `+${gameData.science_per_sec.toFixed(1)}/с`;
+    document.getElementById('food-rate').textContent = gameData.food_per_sec.toFixed(2);
+    document.getElementById('production-rate').textContent = gameData.production_per_sec.toFixed(2);
+    document.getElementById('science-rate').textContent = gameData.science_per_sec.toFixed(2);
+    document.getElementById('gold-rate').textContent = gameData.gold_per_sec.toFixed(2);
+    document.getElementById('culture-rate').textContent = gameData.culture_per_sec.toFixed(2);
+    document.getElementById('faith-rate').textContent = gameData.faith_per_sec.toFixed(2);
+
+    // Эра
+    document.getElementById('era-name').textContent = gameData.era_name;
 
     // Статистика
     document.getElementById('population').textContent = gameData.population;
-    
-    const buildingsCount = 
-        gameData.farm_count + 
-        gameData.barracks_count + 
-        gameData.library_count + 
-        gameData.market_count + 
-        gameData.workshop_count;
+    const buildingsCount = Object.values(gameData.buildings).reduce((a, b) => a + b, 0);
     document.getElementById('buildings-count').textContent = buildingsCount;
+    document.getElementById('techs-count').textContent = gameData.technologies.length;
+    document.getElementById('military').textContent = gameData.military_strength.toFixed(1);
 
-    // Количество зданий
-    document.getElementById('farm-count').textContent = gameData.farm_count;
-    document.getElementById('barracks-count').textContent = gameData.barracks_count;
-    document.getElementById('library-count').textContent = gameData.library_count;
-    document.getElementById('market-count').textContent = gameData.market_count;
-    document.getElementById('workshop-count').textContent = gameData.workshop_count;
-
-    // Проверяем доступность кнопок строительства
     updateBuildButtons();
 }
 
-// Обновление доступности кнопок строительства
-function updateBuildButtons() {
-    const costs = {
-        farm: { food: 0, production: 20, science: 0 },
-        barracks: { food: 10, production: 30, science: 0 },
-        library: { food: 5, production: 25, science: 5 },
-        market: { food: 15, production: 40, science: 10 },
-        workshop: { food: 10, production: 50, science: 15 }
-    };
+function renderBuildings() {
+    const buildings = [
+        { id: 'farm', name: 'Ферма', icon: '🌾', cost: { production: 20 }, effect: '+0.3 🌾/с' },
+        { id: 'barracks', name: 'Казарма', icon: '⚔️', cost: { food: 10, production: 30 }, effect: '+0.2 🏭/с' },
+        { id: 'library', name: 'Библиотека', icon: '📚', cost: { food: 5, production: 25, science: 5 }, effect: '+0.2 🔬/с' },
+        { id: 'market', name: 'Рынок', icon: '🏪', cost: { food: 15, production: 40, gold: 20 }, effect: '+0.2 💰/с' },
+        { id: 'workshop', name: 'Мастерская', icon: '🔧', cost: { production: 50, science: 15 }, effect: '+0.5 🏭/с' },
+        { id: 'granary', name: 'Амбар', icon: '🌾', cost: { production: 15, gold: 5 }, effect: '+0.1 🌾/с' },
+        { id: 'temple', name: 'Храм', icon: '⛪', cost: { production: 20, gold: 15 }, effect: '+0.2 ⛪/с' },
+        { id: 'palace', name: 'Дворец', icon: '👑', cost: { food: 50, production: 100, gold: 100 }, effect: '+0.5 💰/с' }
+    ];
 
-    for (const [building, cost] of Object.entries(costs)) {
-        const card = document.querySelector(`[data-building="${building}"]`);
-        const btn = card.querySelector('.build-btn');
-        
-        const canAfford = 
-            gameData.food >= cost.food &&
-            gameData.production >= cost.production &&
-            gameData.science >= cost.science;
+    const html = buildings.map(b => `
+        <div class="building-card">
+            <div class="building-icon">${b.icon}</div>
+            <div class="building-name">${b.name}</div>
+            <div class="building-effect">${b.effect}</div>
+            <div class="building-cost">${Object.entries(b.cost).map(([k, v]) => `${v} ${k}`).join(' ')}</div>
+            <div style="font-size: 11px; color: #888;">Построено: ${gameData.buildings[b.id]}</div>
+            <button class="build-btn" onclick="buildBuilding('${b.id}')">Построить</button>
+        </div>
+    `).join('');
 
-        btn.disabled = !canAfford;
-        
-        if (canAfford) {
-            card.style.opacity = '1';
-        } else {
-            card.style.opacity = '0.6';
-        }
-    }
+    document.getElementById('buildings-grid').innerHTML = html;
 }
 
-// Генерация ресурсов локально (плавное обновление)
+function renderTechs() {
+    const html = Object.entries(allTechs)
+        .filter(([id]) => !gameData.technologies.includes(id))
+        .slice(0, 15)
+        .map(([id, tech]) => `
+            <div class="tech-card">
+                <div class="tech-header">
+                    <span><span class="tech-icon">${tech.icon}</span> ${tech.name}</span>
+                    <span class="tech-time">${tech.time} мин</span>
+                </div>
+                <div style="font-size: 11px; color: #666; margin-bottom: 8px;">${tech.description}</div>
+                <button class="tech-btn" onclick="startResearch('${id}')">Исследовать</button>
+            </div>
+        `).join('');
+
+    document.getElementById('techs-list').innerHTML = html;
+}
+
+function updateBuildButtons() {
+    // Простая проверка доступности
+}
+
 function startResourceGeneration() {
-    if (resourcesInterval) {
-        clearInterval(resourcesInterval);
-    }
+    if (resourcesInterval) clearInterval(resourcesInterval);
 
     resourcesInterval = setInterval(() => {
         if (!gameData) return;
 
-        // Локально увеличиваем ресурсы
         gameData.food += gameData.food_per_sec;
         gameData.production += gameData.production_per_sec;
         gameData.science += gameData.science_per_sec;
+        gameData.gold += gameData.gold_per_sec;
+        gameData.culture += gameData.culture_per_sec;
+        gameData.faith += gameData.faith_per_sec;
 
         updateUI();
     }, 1000);
 
-    // Синхронизация с сервером каждые 10 секунд
     setInterval(async () => {
         await syncWithServer();
     }, 10000);
 }
 
-// Синхронизация с сервером
 async function syncWithServer() {
     try {
-        const response = await fetch(`${SERVER_URL}/api/update`, {
+        const res = await fetch(`${SERVER_URL}/api/update`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId })
         });
-
-        const data = await response.json();
+        const data = await res.json();
         if (data.success) {
             gameData = data.game;
             updateUI();
@@ -154,89 +164,80 @@ async function syncWithServer() {
     }
 }
 
-// Построить здание
 async function buildBuilding(buildingType) {
-    const btn = event.target;
-    btn.disabled = true;
-    btn.textContent = 'Строим...';
-
     try {
-        const response = await fetch(`${SERVER_URL}/api/build`, {
+        const res = await fetch(`${SERVER_URL}/api/build`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                userId,
-                building: buildingType
-            })
+            body: JSON.stringify({ userId, building: buildingType })
         });
 
-        const data = await response.json();
-
+        const data = await res.json();
         if (data.error) {
             showNotification('❌ ' + data.error, 'error');
-            btn.disabled = false;
-            btn.textContent = 'Построить';
             return;
         }
 
         if (data.success) {
             gameData = data.game;
             updateUI();
-            
-            const buildingNames = {
-                farm: 'Ферма',
-                barracks: 'Казарма',
-                library: 'Библиотека',
-                market: 'Рынок',
-                workshop: 'Мастерская'
-            };
-            
-            showNotification(`✅ ${buildingNames[buildingType]} построена!`, 'success');
-            
-            // Вибрация при успехе
-            if (tg.HapticFeedback) {
-                tg.HapticFeedback.notificationOccurred('success');
-            }
+            renderBuildings();
+            showNotification('✅ Здание построено!', 'success');
         }
-
     } catch (error) {
         console.error('Build error:', error);
-        showNotification('❌ Ошибка строительства', 'error');
-    } finally {
-        btn.disabled = false;
-        btn.textContent = 'Построить';
+        showNotification('❌ Ошибка', 'error');
     }
 }
 
-// Обновить игру
-async function refreshGame() {
-    const btn = event.target;
-    btn.disabled = true;
-    btn.textContent = '🔄 Обновление...';
+async function startResearch(techId) {
+    try {
+        const res = await fetch(`${SERVER_URL}/api/research`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, techId })
+        });
 
-    await syncWithServer();
-    
-    showNotification('✅ Игра обновлена!', 'success');
-    
-    setTimeout(() => {
-        btn.disabled = false;
-        btn.textContent = '🔄 Обновить';
-    }, 1000);
+        const data = await res.json();
+        if (data.error) {
+            showNotification('❌ ' + data.error, 'error');
+            return;
+        }
+
+        if (data.success) {
+            gameData = data.game;
+            updateUI();
+            renderTechs();
+            showNotification('🔬 Исследование начато!', 'success');
+        }
+    } catch (error) {
+        console.error('Research error:', error);
+        showNotification('❌ Ошибка', 'error');
+    }
 }
 
-// Показать помощь
+async function refreshGame() {
+    await syncWithServer();
+    showNotification('✅ Обновлено!', 'success');
+}
+
+function switchTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+    document.getElementById(tabName + '-tab').classList.remove('hidden');
+    event.target.classList.add('active');
+}
+
 function showHelp() {
     document.getElementById('help-modal').classList.remove('hidden');
 }
 
-// Закрыть помощь
 function closeHelp() {
     document.getElementById('help-modal').classList.add('hidden');
 }
 
-// Показать уведомление
 function showNotification(message, type = 'info') {
-    // Создаем элемент уведомления
     const notification = document.createElement('div');
     notification.style.cssText = `
         position: fixed;
@@ -245,14 +246,10 @@ function showNotification(message, type = 'info') {
         transform: translateX(-50%);
         background: ${type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#667eea'};
         color: white;
-        padding: 15px 25px;
+        padding: 12px 20px;
         border-radius: 8px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
         z-index: 10000;
         animation: slideDown 0.3s ease-out;
-        max-width: 90%;
-        text-align: center;
-        font-weight: bold;
     `;
     notification.textContent = message;
     document.body.appendChild(notification);
@@ -263,17 +260,15 @@ function showNotification(message, type = 'info') {
     }, 2000);
 }
 
-// Показать ошибку
 function showError(message) {
     document.getElementById('loading').innerHTML = `
         <div style="color: white; text-align: center; padding: 20px;">
             <div style="font-size: 48px; margin-bottom: 20px;">❌</div>
-            <p style="font-size: 18px;">${message}</p>
+            <p>${message}</p>
         </div>
     `;
 }
 
-// Стили для анимаций
 const style = document.createElement('style');
 style.textContent = `
     @keyframes slideDown {
@@ -287,12 +282,7 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-// Запуск игры при загрузке
 window.addEventListener('DOMContentLoaded', initGame);
-
-// Остановка генерации при выходе
 window.addEventListener('beforeunload', () => {
-    if (resourcesInterval) {
-        clearInterval(resourcesInterval);
-    }
+    if (resourcesInterval) clearInterval(resourcesInterval);
 });

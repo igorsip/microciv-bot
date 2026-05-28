@@ -4,6 +4,7 @@ const cors = require('cors');
 const path = require('path');
 const { createBot } = require('./bot');
 const db = require('./database');
+const { getAllTechs, getTechsByEra, canResearchTech, getTechTime } = require('./tech-tree');
 
 // Проверка переменных окружения
 if (!process.env.BOT_TOKEN) {
@@ -90,6 +91,71 @@ app.post('/api/update', (req, res) => {
     });
   } catch (error) {
     console.error('Error updating resources:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Получить все технологии
+app.get('/api/techs/all', (req, res) => {
+  try {
+    const allTechs = getAllTechs();
+    res.json({ techs: allTechs });
+  } catch (error) {
+    console.error('Error fetching techs:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Получить технологии эпохи
+app.get('/api/techs/era/:eraLevel', (req, res) => {
+  try {
+    const eraLevel = parseInt(req.params.eraLevel);
+    const era = getTechsByEra(eraLevel);
+    
+    if (!era) {
+      return res.status(404).json({ error: 'Era not found' });
+    }
+    
+    res.json(era);
+  } catch (error) {
+    console.error('Error fetching era:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Начать исследование технологии
+app.post('/api/research', (req, res) => {
+  const { userId, techId } = req.body;
+  
+  if (!userId || !techId) {
+    return res.status(400).json({ error: 'Missing userId or techId' });
+  }
+  
+  try {
+    const gameData = db.getGameData(parseInt(userId));
+    
+    if (!gameData) {
+      return res.status(404).json({ error: 'Player not found' });
+    }
+    
+    // Проверяем может ли быть исследована
+    if (!canResearchTech(techId, gameData.technologies)) {
+      return res.status(400).json({ error: 'Technology requirements not met' });
+    }
+    
+    const result = db.startResearch(parseInt(userId), techId);
+    
+    if (!result.success) {
+      return res.status(400).json({ error: result.error });
+    }
+    
+    const stats = db.getPlayerStats(parseInt(userId));
+    res.json({
+      success: true,
+      game: stats.gameData
+    });
+  } catch (error) {
+    console.error('Error researching tech:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });

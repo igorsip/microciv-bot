@@ -3,7 +3,6 @@ const path = require('path');
 
 const DB_FILE = path.join(__dirname, 'game-data.json');
 
-// Загружаем или создаем файл базы данных
 function loadDatabase() {
   if (fs.existsSync(DB_FILE)) {
     try {
@@ -17,7 +16,6 @@ function loadDatabase() {
   return { players: {}, gameData: {} };
 }
 
-// Сохраняем базу данных
 function saveDatabase(db) {
   try {
     fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), 'utf8');
@@ -28,12 +26,10 @@ function saveDatabase(db) {
 
 let database = loadDatabase();
 
-// Инициализация базы данных
 function initDatabase() {
   console.log('✅ База данных (JSON) инициализирована');
 }
 
-// Создать или получить игрока
 function getOrCreatePlayer(telegramId, userData = {}) {
   if (!database.players[telegramId]) {
     database.players[telegramId] = {
@@ -44,28 +40,68 @@ function getOrCreatePlayer(telegramId, userData = {}) {
       last_active: Math.floor(Date.now() / 1000)
     };
 
+    // 7 ресурсов + эпохи
     database.gameData[telegramId] = {
       telegram_id: telegramId,
-      food: 50,
-      production: 30,
-      science: 10,
-      population: 1,
-      turn: 1,
+      
+      // 7 ресурсов
+      food: 100,
+      production: 50,
+      science: 20,
+      gold: 10,
+      culture: 5,
+      faith: 0,
+      happiness: 50,
+      
+      // Генерация в сек
       food_per_sec: 0.5,
       production_per_sec: 0.3,
       science_per_sec: 0.1,
-      farm_count: 0,
-      barracks_count: 0,
-      library_count: 0,
-      market_count: 0,
-      workshop_count: 0,
-      technologies: [],
-      last_update: Math.floor(Date.now() / 1000)
+      gold_per_sec: 0.05,
+      culture_per_sec: 0.02,
+      faith_per_sec: 0.01,
+      
+      // Система эпох
+      era: 0,  // Каменный век (0-5)
+      era_name: "Каменный век",
+      
+      // Технологии
+      technologies: [], // массив ID технологий
+      current_research: null, // ID исследуемой технологии
+      research_progress: 0, // от 0 до 100
+      research_speed: 1.0, // множитель скорости исследования
+      
+      // Здания (новое)
+      buildings: {
+        farm: 0,
+        barracks: 0,
+        library: 0,
+        market: 0,
+        workshop: 0,
+        granary: 0,
+        temple: 0,
+        palace: 0
+      },
+      
+      // Население и счастье
+      population: 1,
+      population_growth: 0.05,
+      
+      // Военное
+      military_strength: 1.0,
+      city_defense: 1.0,
+      
+      // Торговля
+      trade_capacity: 1.0,
+      
+      // Игровой прогресс
+      turn: 1,
+      last_update: Math.floor(Date.now() / 1000),
+      total_playtime: 0
     };
 
     saveDatabase(database);
   } else {
-    // Обновляем последнюю активность
     database.players[telegramId].last_active = Math.floor(Date.now() / 1000);
     saveDatabase(database);
   }
@@ -73,12 +109,10 @@ function getOrCreatePlayer(telegramId, userData = {}) {
   return database.players[telegramId];
 }
 
-// Получить игровые данные
 function getGameData(telegramId) {
   return database.gameData[telegramId] || null;
 }
 
-// Обновить ресурсы с учетом прошедшего времени
 function updateResources(telegramId) {
   const gameData = getGameData(telegramId);
   if (!gameData) return null;
@@ -86,15 +120,25 @@ function updateResources(telegramId) {
   const now = Math.floor(Date.now() / 1000);
   const timePassed = now - gameData.last_update;
 
-  // Рассчитываем новые ресурсы
+  // Обновляем все 7 ресурсов
   const newFood = Math.floor(gameData.food + (gameData.food_per_sec * timePassed));
   const newProduction = Math.floor(gameData.production + (gameData.production_per_sec * timePassed));
   const newScience = Math.floor(gameData.science + (gameData.science_per_sec * timePassed));
+  const newGold = Math.floor(gameData.gold + (gameData.gold_per_sec * timePassed));
+  const newCulture = Math.floor(gameData.culture + (gameData.culture_per_sec * timePassed));
+  const newFaith = Math.floor(gameData.faith + (gameData.faith_per_sec * timePassed));
 
-  // Обновляем в памяти
+  // Обновляем исследование технологий
+  if (gameData.current_research) {
+    gameData.research_progress += (gameData.science_per_sec * timePassed * gameData.research_speed);
+  }
+
   gameData.food = newFood;
   gameData.production = newProduction;
   gameData.science = newScience;
+  gameData.gold = newGold;
+  gameData.culture = newCulture;
+  gameData.faith = newFaith;
   gameData.last_update = now;
 
   saveDatabase(database);
@@ -103,58 +147,83 @@ function updateResources(telegramId) {
     food: newFood,
     production: newProduction,
     science: newScience,
+    gold: newGold,
+    culture: newCulture,
+    faith: newFaith,
     timePassed
   };
 }
 
-// Построить здание
+function startResearch(telegramId, techId) {
+  const gameData = getGameData(telegramId);
+  if (!gameData) return { success: false, error: 'Игрок не найден' };
+
+  gameData.current_research = techId;
+  gameData.research_progress = 0;
+
+  saveDatabase(database);
+  return { success: true };
+}
+
 function buildBuilding(telegramId, buildingType) {
   const costs = {
-    farm: { food: 0, production: 20, science: 0 },
-    barracks: { food: 10, production: 30, science: 0 },
-    library: { food: 5, production: 25, science: 5 },
-    market: { food: 15, production: 40, science: 10 },
-    workshop: { food: 10, production: 50, science: 15 }
+    farm: { food: 0, production: 20, science: 0, gold: 0 },
+    barracks: { food: 10, production: 30, science: 0, gold: 10 },
+    library: { food: 5, production: 25, science: 5, gold: 0 },
+    market: { food: 15, production: 40, science: 10, gold: 20 },
+    workshop: { food: 10, production: 50, science: 15, gold: 5 },
+    granary: { food: 0, production: 15, science: 0, gold: 5 },
+    temple: { food: 5, production: 20, science: 10, gold: 15 },
+    palace: { food: 50, production: 100, science: 50, gold: 100 }
   };
 
   const benefits = {
-    farm: { food_per_sec: 0.3, production_per_sec: 0, science_per_sec: 0 },
-    barracks: { food_per_sec: -0.1, production_per_sec: 0.2, science_per_sec: 0 },
-    library: { food_per_sec: 0, production_per_sec: 0, science_per_sec: 0.2 },
-    market: { food_per_sec: 0.2, production_per_sec: 0.3, science_per_sec: 0 },
-    workshop: { food_per_sec: 0, production_per_sec: 0.5, science_per_sec: 0.1 }
+    farm: { food_per_sec: 0.3 },
+    barracks: { food_per_sec: -0.1, production_per_sec: 0.2, military_strength: 0.5 },
+    library: { science_per_sec: 0.2 },
+    market: { food_per_sec: 0.2, production_per_sec: 0.3, gold_per_sec: 0.2, trade_capacity: 0.2 },
+    workshop: { production_per_sec: 0.5, science_per_sec: 0.1 },
+    granary: { food_per_sec: 0.1, happiness: 5 },
+    temple: { faith_per_sec: 0.2, happiness: 10, culture_per_sec: 0.1 },
+    palace: { gold_per_sec: 0.5, culture_per_sec: 0.3, happiness: 20 }
   };
 
   const cost = costs[buildingType];
   if (!cost) return { success: false, error: 'Неизвестное здание' };
 
-  // Обновляем ресурсы перед проверкой
   updateResources(telegramId);
   const gameData = getGameData(telegramId);
 
-  // Проверяем достаточно ли ресурсов
-  if (gameData.food < cost.food ||
-    gameData.production < cost.production ||
-    gameData.science < cost.science) {
+  if (gameData.food < cost.food || 
+      gameData.production < cost.production || 
+      gameData.science < cost.science ||
+      gameData.gold < cost.gold) {
     return { success: false, error: 'Недостаточно ресурсов' };
   }
 
-  // Списываем ресурсы и добавляем здание
   const benefit = benefits[buildingType];
   gameData.food -= cost.food;
   gameData.production -= cost.production;
   gameData.science -= cost.science;
-  gameData[`${buildingType}_count`] += 1;
-  gameData.food_per_sec += benefit.food_per_sec;
-  gameData.production_per_sec += benefit.production_per_sec;
-  gameData.science_per_sec += benefit.science_per_sec;
+  gameData.gold -= cost.gold;
+  gameData.buildings[buildingType] += 1;
+  
+  // Применяем эффекты здания
+  if (benefit.food_per_sec) gameData.food_per_sec += benefit.food_per_sec;
+  if (benefit.production_per_sec) gameData.production_per_sec += benefit.production_per_sec;
+  if (benefit.science_per_sec) gameData.science_per_sec += benefit.science_per_sec;
+  if (benefit.gold_per_sec) gameData.gold_per_sec += benefit.gold_per_sec;
+  if (benefit.culture_per_sec) gameData.culture_per_sec += benefit.culture_per_sec;
+  if (benefit.faith_per_sec) gameData.faith_per_sec += benefit.faith_per_sec;
+  if (benefit.happiness) gameData.happiness += benefit.happiness;
+  if (benefit.military_strength) gameData.military_strength += benefit.military_strength;
+  if (benefit.trade_capacity) gameData.trade_capacity += benefit.trade_capacity;
 
   saveDatabase(database);
 
   return { success: true };
 }
 
-// Получить статистику игрока
 function getPlayerStats(telegramId) {
   updateResources(telegramId);
   const gameData = getGameData(telegramId);
@@ -172,5 +241,6 @@ module.exports = {
   getGameData,
   updateResources,
   buildBuilding,
+  startResearch,
   getPlayerStats
 };

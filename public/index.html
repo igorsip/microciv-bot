@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MicroCiv - Твоя империя</title>
+    <title>MicroCiv 2.0 - Цивилизация</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
@@ -11,113 +11,89 @@
     <div id="app">
         <div id="loading" class="loading">
             <div class="spinner"></div>
-            <p>Загрузка империи...</p>
+            <p>Загрузка цивилизации...</p>
         </div>
 
         <div id="game" class="game hidden">
             <!-- Шапка с ресурсами -->
             <header class="resources-panel">
-                <div class="resource">
-                    <span class="icon">🌾</span>
-                    <div class="resource-info">
-                        <div class="resource-value" id="food">0</div>
-                        <div class="resource-rate" id="food-rate">+0.0/с</div>
-                    </div>
+                <div class="era-badge">
+                    <span id="era-icon">⛏️</span>
+                    <span id="era-name">Каменный век</span>
                 </div>
-                <div class="resource">
-                    <span class="icon">🏭</span>
-                    <div class="resource-info">
-                        <div class="resource-value" id="production">0</div>
-                        <div class="resource-rate" id="production-rate">+0.0/с</div>
+                
+                <div class="resources-grid">
+                    <div class="resource">
+                        <span class="icon">🌾</span>
+                        <div><span id="food">0</span> <small>+<span id="food-rate">0.0</span>/с</small></div>
                     </div>
-                </div>
-                <div class="resource">
-                    <span class="icon">🔬</span>
-                    <div class="resource-info">
-                        <div class="resource-value" id="science">0</div>
-                        <div class="resource-rate" id="science-rate">+0.0/с</div>
+                    <div class="resource">
+                        <span class="icon">🏭</span>
+                        <div><span id="production">0</span> <small>+<span id="production-rate">0.0</span>/с</small></div>
+                    </div>
+                    <div class="resource">
+                        <span class="icon">🔬</span>
+                        <div><span id="science">0</span> <small>+<span id="science-rate">0.0</span>/с</small></div>
+                    </div>
+                    <div class="resource">
+                        <span class="icon">💰</span>
+                        <div><span id="gold">0</span> <small>+<span id="gold-rate">0.0</span>/с</small></div>
+                    </div>
+                    <div class="resource">
+                        <span class="icon">🎨</span>
+                        <div><span id="culture">0</span> <small>+<span id="culture-rate">0.0</span>/с</small></div>
+                    </div>
+                    <div class="resource">
+                        <span class="icon">⛪</span>
+                        <div><span id="faith">0</span> <small>+<span id="faith-rate">0.0</span>/с</small></div>
+                    </div>
+                    <div class="resource">
+                        <span class="icon">😊</span>
+                        <div><span id="happiness">50</span>%</div>
                     </div>
                 </div>
             </header>
 
-            <!-- Информация о городе -->
-            <section class="city-info">
-                <h2>🏛 Твоя империя</h2>
-                <div class="stats">
-                    <div class="stat">👥 Население: <span id="population">1</span></div>
-                    <div class="stat">🏗 Зданий: <span id="buildings-count">0</span></div>
+            <!-- Вкладки -->
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('overview')">📊 Обзор</button>
+                <button class="tab-btn" onclick="switchTab('buildings')">🏗️ Здания</button>
+                <button class="tab-btn" onclick="switchTab('techs')">🔬 Технологии</button>
+            </div>
+
+            <!-- TAB: Обзор -->
+            <section id="overview-tab" class="tab-content active">
+                <div class="city-info">
+                    <h2>🏛 Твоя империя</h2>
+                    <div class="stats">
+                        <div class="stat">👥 Население: <span id="population">1</span></div>
+                        <div class="stat">🏗 Зданий: <span id="buildings-count">0</span></div>
+                        <div class="stat">🔬 Технологий: <span id="techs-count">0</span></div>
+                        <div class="stat">⚔️ Сила: <span id="military">1.0</span></div>
+                    </div>
                 </div>
             </section>
 
-            <!-- Здания -->
-            <section class="buildings">
+            <!-- TAB: Здания -->
+            <section id="buildings-tab" class="tab-content hidden">
                 <h3>🏗 Построить здание</h3>
-                <div class="buildings-grid">
-                    <div class="building-card" data-building="farm">
-                        <div class="building-icon">🌾</div>
-                        <div class="building-name">Ферма</div>
-                        <div class="building-effect">+0.3 🌾/с</div>
-                        <div class="building-cost">
-                            <span>🏭 20</span>
-                        </div>
-                        <div class="building-owned">Построено: <span id="farm-count">0</span></div>
-                        <button class="build-btn" onclick="buildBuilding('farm')">Построить</button>
-                    </div>
-
-                    <div class="building-card" data-building="barracks">
-                        <div class="building-icon">⚔️</div>
-                        <div class="building-name">Казарма</div>
-                        <div class="building-effect">+0.2 🏭/с</div>
-                        <div class="building-cost">
-                            <span>🌾 10</span>
-                            <span>🏭 30</span>
-                        </div>
-                        <div class="building-owned">Построено: <span id="barracks-count">0</span></div>
-                        <button class="build-btn" onclick="buildBuilding('barracks')">Построить</button>
-                    </div>
-
-                    <div class="building-card" data-building="library">
-                        <div class="building-icon">📚</div>
-                        <div class="building-name">Библиотека</div>
-                        <div class="building-effect">+0.2 🔬/с</div>
-                        <div class="building-cost">
-                            <span>🌾 5</span>
-                            <span>🏭 25</span>
-                            <span>🔬 5</span>
-                        </div>
-                        <div class="building-owned">Построено: <span id="library-count">0</span></div>
-                        <button class="build-btn" onclick="buildBuilding('library')">Построить</button>
-                    </div>
-
-                    <div class="building-card" data-building="market">
-                        <div class="building-icon">🏪</div>
-                        <div class="building-name">Рынок</div>
-                        <div class="building-effect">+0.2 🌾/с, +0.3 🏭/с</div>
-                        <div class="building-cost">
-                            <span>🌾 15</span>
-                            <span>🏭 40</span>
-                            <span>🔬 10</span>
-                        </div>
-                        <div class="building-owned">Построено: <span id="market-count">0</span></div>
-                        <button class="build-btn" onclick="buildBuilding('market')">Построить</button>
-                    </div>
-
-                    <div class="building-card" data-building="workshop">
-                        <div class="building-icon">🔧</div>
-                        <div class="building-name">Мастерская</div>
-                        <div class="building-effect">+0.5 🏭/с, +0.1 🔬/с</div>
-                        <div class="building-cost">
-                            <span>🌾 10</span>
-                            <span>🏭 50</span>
-                            <span>🔬 15</span>
-                        </div>
-                        <div class="building-owned">Построено: <span id="workshop-count">0</span></div>
-                        <button class="build-btn" onclick="buildBuilding('workshop')">Построить</button>
-                    </div>
+                <div class="buildings-grid" id="buildings-grid">
+                    <!-- Здания будут добавлены JS -->
                 </div>
             </section>
 
-            <!-- Футер с кнопками -->
+            <!-- TAB: Технологии -->
+            <section id="techs-tab" class="tab-content hidden">
+                <h3>🔬 Исследование технологий</h3>
+                <div id="research-info" class="research-info">
+                    <!-- Информация об исследовании -->
+                </div>
+                <div id="techs-list" class="techs-list">
+                    <!-- Технологии будут добавлены JS -->
+                </div>
+            </section>
+
+            <!-- Футер -->
             <footer class="game-footer">
                 <button class="action-btn" onclick="refreshGame()">🔄 Обновить</button>
                 <button class="action-btn" onclick="showHelp()">❓ Помощь</button>
@@ -128,12 +104,10 @@
         <div id="help-modal" class="modal hidden">
             <div class="modal-content">
                 <h2>📖 Справка</h2>
-                <p><strong>🎯 Цель:</strong> Развивай цивилизацию, строй здания!</p>
-                <p><strong>🌾 Еда</strong> - кормит население</p>
-                <p><strong>🏭 Производство</strong> - нужно для строительства</p>
-                <p><strong>🔬 Наука</strong> - открывает технологии</p>
-                <br>
-                <p>Ресурсы генерируются автоматически каждую секунду!</p>
+                <p><strong>🎯 Цель:</strong> Развивай цивилизацию от Каменного века!</p>
+                <p><strong>Эпохи:</strong> Каменный век → Древность → Средневековье → Ренессанс → Промышленность → Информационная эра</p>
+                <p><strong>Ресурсы:</strong> Разные ресурсы для разных целей</p>
+                <p><strong>Технологии:</strong> Исследуй новые технологии для улучшения</p>
                 <button class="action-btn" onclick="closeHelp()">Закрыть</button>
             </div>
         </div>
